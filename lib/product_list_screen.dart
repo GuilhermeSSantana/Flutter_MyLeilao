@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:my_app/Historicos_Lances/bid_history_dialog.dart';
 
 class ProductListScreen extends StatefulWidget {
   const ProductListScreen({super.key});
@@ -38,6 +39,14 @@ class _ProductListScreenState extends State<ProductListScreen> {
 
   String formatCurrency(double value) {
     return NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$').format(value);
+  }
+
+  // Novo método para mostrar histórico
+  void _showBidHistory(String productId) {
+    showDialog(
+      context: context,
+      builder: (context) => BidHistoryDialog(productId: productId),
+    );
   }
 
   @override
@@ -80,6 +89,10 @@ class _ProductListScreenState extends State<ProductListScreen> {
                               ProductDetailsDialog(data: data),
                         );
                       },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.history),
+                      onPressed: () => _showBidHistory(doc.id),
                     ),
                     IconButton(
                       icon: const Icon(Icons.gavel),
@@ -213,12 +226,25 @@ class _BidDialogState extends State<BidDialog> {
           onPressed: () async {
             final bidValue = _parseValue();
             if (bidValue > 0 && bidValue >= widget.currentBid) {
-              await FirebaseFirestore.instance
-                  .collection('products')
-                  .doc(widget.productId)
-                  .update({'valor': bidValue});
-              // ignore: use_build_context_synchronously
-              Navigator.pop(context);
+              final user = FirebaseAuth.instance.currentUser;
+              if (user != null) {
+                // Criar o lance no histórico
+                await FirebaseFirestore.instance.collection('bids').add({
+                  'userId': user.uid,
+                  'productId': widget.productId,
+                  'bidValue': bidValue,
+                  'bidTime': FieldValue.serverTimestamp(),
+                });
+
+                // Atualizar o valor do produto
+                await FirebaseFirestore.instance
+                    .collection('products')
+                    .doc(widget.productId)
+                    .update({'valor': bidValue});
+
+                // ignore: use_build_context_synchronously
+                Navigator.pop(context);
+              }
             } else {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
