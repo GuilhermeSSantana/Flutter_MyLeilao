@@ -1,11 +1,40 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart'; // Para formatação de moeda
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 
-import 'add_product_screen.dart';
-
-class ProductListScreen extends StatelessWidget {
+class ProductListScreen extends StatefulWidget {
   const ProductListScreen({super.key});
+
+  @override
+  // ignore: library_private_types_in_public_api
+  _ProductListScreenState createState() => _ProductListScreenState();
+}
+
+class _ProductListScreenState extends State<ProductListScreen> {
+  // ignore: unused_field
+  bool _isAdmin = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAdminStatus();
+  }
+
+  Future<void> _checkAdminStatus() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(user.uid)
+          .get();
+
+      setState(() {
+        _isAdmin = userDoc.data()?['adm'] ?? false;
+      });
+    }
+  }
 
   String formatCurrency(double value) {
     return NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$').format(value);
@@ -16,19 +45,6 @@ class ProductListScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Produtos em Leilão'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const AddProductScreen(),
-                ),
-              );
-            },
-          ),
-        ],
       ),
       body: StreamBuilder(
         stream: FirebaseFirestore.instance.collection('products').snapshots(),
@@ -132,9 +148,43 @@ class BidDialog extends StatefulWidget {
 
 class _BidDialogState extends State<BidDialog> {
   final _bidController = TextEditingController();
+  final _currencyFormatter =
+      NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+
+  @override
+  void initState() {
+    super.initState();
+    _bidController.addListener(_formatCurrency);
+  }
+
+  void _formatCurrency() {
+    String text = _bidController.text.replaceAll(RegExp(r'[^\d]'), '');
+
+    if (text.isNotEmpty) {
+      // Converte para centavos
+      double value = double.parse(text) / 100;
+
+      // Formata como moeda
+      final formattedValue = _currencyFormatter.format(value);
+
+      _bidController.value = TextEditingValue(
+        text: formattedValue,
+        selection: TextSelection.collapsed(offset: formattedValue.length),
+      );
+    }
+  }
+
+  double _parseValue() {
+    // Remove todos os caracteres que não são números
+    String cleanText = _bidController.text.replaceAll(RegExp(r'[^\d]'), '');
+
+    // Converte para double dividindo por 100 para obter o valor real
+    return cleanText.isEmpty ? 0 : double.parse(cleanText) / 100;
+  }
 
   @override
   void dispose() {
+    _bidController.removeListener(_formatCurrency);
     _bidController.dispose();
     super.dispose();
   }
@@ -146,7 +196,13 @@ class _BidDialogState extends State<BidDialog> {
       content: TextField(
         controller: _bidController,
         keyboardType: TextInputType.number,
-        decoration: const InputDecoration(labelText: 'Valor do Lance'),
+        decoration: const InputDecoration(
+          labelText: 'Valor do Lance',
+          hintText: 'R\$ 0,00',
+        ),
+        inputFormatters: [
+          FilteringTextInputFormatter.digitsOnly,
+        ],
       ),
       actions: [
         TextButton(
@@ -155,12 +211,13 @@ class _BidDialogState extends State<BidDialog> {
         ),
         ElevatedButton(
           onPressed: () async {
-            final bidValue = double.tryParse(_bidController.text);
-            if (bidValue != null && bidValue >= widget.currentBid) {
+            final bidValue = _parseValue();
+            if (bidValue > 0 && bidValue >= widget.currentBid) {
               await FirebaseFirestore.instance
                   .collection('products')
                   .doc(widget.productId)
                   .update({'valor': bidValue});
+              // ignore: use_build_context_synchronously
               Navigator.pop(context);
             } else {
               ScaffoldMessenger.of(context).showSnackBar(
