@@ -7,6 +7,7 @@ class UserBidsScreen extends StatefulWidget {
   const UserBidsScreen({super.key});
 
   @override
+  // ignore: library_private_types_in_public_api
   _UserBidsScreenState createState() => _UserBidsScreenState();
 }
 

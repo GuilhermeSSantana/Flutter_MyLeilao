@@ -53,8 +53,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
                 validator: (value) {
                   final trimmedValue = value!.trim();
                   if (trimmedValue.isEmpty) return 'Informe o valor';
-                  if (double.tryParse(trimmedValue) == null)
+                  if (double.tryParse(trimmedValue) == null) {
                     return 'Informe um valor válido';
+                  }
                   return null;
                 },
               ),
@@ -75,6 +76,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                     await FirebaseFirestore.instance
                         .collection('products')
                         .add(productData);
+                    // ignore: use_build_context_synchronously
                     Navigator.pop(context);
                   }
                 },
