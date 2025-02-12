@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:my_app/Historicos_Lances/historico_lances.dart';
 import 'package:my_app/add_product_screen.dart';
 import 'package:my_app/product_list_screen.dart';
+import 'package:my_app/auth_screen.dart'; // Adicione este import
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -17,6 +18,7 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _selectedIndex = 0;
   bool _isAdmin = false;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   @override
   void initState() {
@@ -35,6 +37,23 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       setState(() {
         _isAdmin = userDoc.data()?['adm'] ?? false;
       });
+    }
+  }
+
+  Future<void> _logout() async {
+    try {
+      await _auth.signOut();
+      // Navegue para a tela de autenticação e remova todas as telas anteriores da pilha
+      // ignore: use_build_context_synchronously
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const AuthScreen()),
+        (route) => false,
+      );
+    } catch (e) {
+      // ignore: use_build_context_synchronously
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao fazer logout: $e')),
+      );
     }
   }
 
@@ -78,6 +97,16 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Leilões'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.exit_to_app),
+            onPressed: _logout,
+            tooltip: 'Sair',
+          ),
+        ],
+      ),
       body: _getSelectedScreen(),
       bottomNavigationBar: BottomNavigationBar(
         items: _getNavBarItems(),
