@@ -28,7 +28,6 @@ class _UserBidsScreenState extends State<UserBidsScreen> {
       setState(() {
         _currentUserId = user.uid;
       });
-      debugPrint('ID do usuário atual: $_currentUserId');
     }
   }
 
@@ -50,14 +49,14 @@ class _UserBidsScreenState extends State<UserBidsScreen> {
           bottom: const TabBar(
             tabs: [
               Tab(text: 'Meus Lances'),
-              Tab(text: 'Leilões Ativos'),
+              Tab(text: 'Meus Leilões'),
             ],
           ),
         ),
         body: TabBarView(
           children: [
             _buildUserBidsTab(),
-            _buildActiveAuctionsTab(),
+            _buildUserAuctionsTab(),
           ],
         ),
       ),
@@ -73,7 +72,6 @@ class _UserBidsScreenState extends State<UserBidsScreen> {
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          // Verifica se é erro de índice
           if (snapshot.error.toString().contains('failed-precondition')) {
             return const Center(
               child: Column(
@@ -90,23 +88,6 @@ class _UserBidsScreenState extends State<UserBidsScreen> {
           return Center(
               child: Text('Erro ao carregar dados: ${snapshot.error}'));
         }
-        // stream: _firestore
-        //     .collection('bids')
-        //     .where('userId', isEqualTo: _currentUserId)
-        //     .orderBy('bidTime', descending: true)
-        //     .snapshots(),
-        // builder: (context, snapshot) {
-        //   // Debug prints
-        //   debugPrint('Status da conexão: ${snapshot.connectionState}');
-        //   debugPrint('Tem dados? ${snapshot.hasData}');
-        //   if (snapshot.hasData) {
-        //     debugPrint('Número de documentos: ${snapshot.data!.docs.length}');
-        //   }
-        //   if (snapshot.hasError) {
-        //     debugPrint('Erro: ${snapshot.error}');
-        //     return Center(
-        //         child: Text('Erro ao carregar dados: ${snapshot.error}'));
-        //   }
 
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -130,9 +111,8 @@ class _UserBidsScreenState extends State<UserBidsScreen> {
               builder: (context, productSnapshot) {
                 if (productSnapshot.hasError) {
                   return ListTile(
-                    title: Text(
-                        'Erro ao carregar produto: ${productSnapshot.error}'),
-                  );
+                      title: Text(
+                          'Erro ao carregar produto: ${productSnapshot.error}'));
                 }
 
                 if (!productSnapshot.hasData) {
@@ -144,9 +124,8 @@ class _UserBidsScreenState extends State<UserBidsScreen> {
 
                 if (!productSnapshot.data!.exists) {
                   return ListTile(
-                    title: Text(
-                        'Produto não encontrado (ID: ${bidData['productId']})'),
-                  );
+                      title: Text(
+                          'Produto não encontrado (ID: ${bidData['productId']})'));
                 }
 
                 var productData =
@@ -174,6 +153,13 @@ class _UserBidsScreenState extends State<UserBidsScreen> {
                           'Data do lance: ${DateFormat('dd/MM/yyyy HH:mm').format((bidData['bidTime'] as Timestamp).toDate())}',
                           style: const TextStyle(color: Colors.grey),
                         ),
+                        Text(
+                          'Status: ${productData['status'] ?? 'Não disponível'}',
+                          style: TextStyle(
+                            color: _getStatusColor(productData['status']),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ],
                     ),
                     trailing: bidData['bidValue'] == productData['valor']
@@ -189,48 +175,182 @@ class _UserBidsScreenState extends State<UserBidsScreen> {
     );
   }
 
-  Widget _buildActiveAuctionsTab() {
+  // Widget _buildUserAuctionsTab() {
+  //   return StreamBuilder<QuerySnapshot>(
+  //     stream: _firestore
+  //         .collection('bids')
+  //         .where('userId', isEqualTo: _currentUserId)
+  //         .orderBy('bidTime', descending: true)
+  //         .snapshots(),
+  //     builder: (context, bidsSnapshot) {
+  //       if (bidsSnapshot.hasError) {
+  //         return Center(
+  //             child: Text('Erro ao carregar leilões: ${bidsSnapshot.error}'));
+  //       }
+
+  //       if (bidsSnapshot.connectionState == ConnectionState.waiting) {
+  //         return const Center(child: CircularProgressIndicator());
+  //       }
+
+  //       if (!bidsSnapshot.hasData || bidsSnapshot.data!.docs.isEmpty) {
+  //         return const Center(
+  //             child: Text('Você não participou de nenhum leilão'));
+  //       }
+
+  //       // Get unique product IDs from bids
+  //       Set<String> productIds = bidsSnapshot.data!.docs
+  //           .map((doc) =>
+  //               (doc.data() as Map<String, dynamic>)['productId'] as String)
+  //           .toSet();
+
+  //       return StreamBuilder<QuerySnapshot>(
+  //         stream: _firestore
+  //             .collection('products')
+  //             .where(FieldPath.documentId, whereIn: productIds.toList())
+  //             .snapshots(),
+  //         builder: (context, productsSnapshot) {
+  //           if (productsSnapshot.hasError) {
+  //             return Center(
+  //                 child: Text(
+  //                     'Erro ao carregar produtos: ${productsSnapshot.error}'));
+  //           }
+
+  //           if (productsSnapshot.connectionState == ConnectionState.waiting) {
+  //             return const Center(child: CircularProgressIndicator());
+  //           }
+
+  //           if (!productsSnapshot.hasData ||
+  //               productsSnapshot.data!.docs.isEmpty) {
+  //             return const Center(child: Text('Nenhum leilão encontrado'));
+  //           }
+
+  //           return ListView.builder(
+  //             itemCount: productsSnapshot.data!.docs.length,
+  //             itemBuilder: (context, index) {
+  //               var productDoc = productsSnapshot.data!.docs[index];
+  //               var productData = productDoc.data() as Map<String, dynamic>;
+  //               var userBids = bidsSnapshot.data!.docs
+  //                   .where((bid) => bid['productId'] == productDoc.id)
+  //                   .toList();
+  //               var highestUserBid = userBids.reduce((curr, next) =>
+  //                   (curr['bidValue'] as num) > (next['bidValue'] as num)
+  //                       ? curr
+  //                       : next);
+
+  //               return Card(
+  //                 margin: const EdgeInsets.all(8.0),
+  //                 child: ListTile(
+  //                   title: Text(
+  //                     productData['nome'] ?? 'Nome não disponível',
+  //                     style: const TextStyle(fontWeight: FontWeight.bold),
+  //                   ),
+  //                   subtitle: Column(
+  //                     crossAxisAlignment: CrossAxisAlignment.start,
+  //                     children: [
+  //                       Text(
+  //                         'Lance atual: ${_currencyFormatter.format(productData['valor'] ?? 0)}',
+  //                         style: const TextStyle(color: Colors.green),
+  //                       ),
+  //                       Text(
+  //                         'Seu maior lance: ${_currencyFormatter.format(highestUserBid['bidValue'] ?? 0)}',
+  //                         style: const TextStyle(color: Colors.blue),
+  //                       ),
+  //                       Text(
+  //                         'Status: ${productData['status'] ?? 'Não disponível'}',
+  //                         style: TextStyle(
+  //                           color: _getStatusColor(productData['status']),
+  //                           fontWeight: FontWeight.bold,
+  //                         ),
+  //                       ),
+  //                       Text(
+  //                         'Total de lances: ${userBids.length}',
+  //                         style: const TextStyle(color: Colors.grey),
+  //                       ),
+  //                     ],
+  //                   ),
+  //                   trailing: highestUserBid['bidValue'] == productData['valor']
+  //                       ? const Icon(Icons.gavel, color: Colors.green)
+  //                       : const Icon(Icons.gavel_outlined, color: Colors.grey),
+  //                 ),
+  //               );
+  //             },
+  //           );
+  //         },
+  //       );
+  //     },
+  //   );
+  // }
+
+  Widget _buildUserAuctionsTab() {
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore
-          .collection('products')
-          .where('status', isEqualTo: 'ativo')
+          .collection('bids')
+          .where('userId', isEqualTo: _currentUserId)
+          .orderBy('bidTime', descending: true)
           .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
+      builder: (context, bidsSnapshot) {
+        if (bidsSnapshot.hasError) {
           return Center(
-              child: Text('Erro ao carregar leilões: ${snapshot.error}'));
+              child: Text('Erro ao carregar leilões: ${bidsSnapshot.error}'));
         }
 
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (bidsSnapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text('Nenhum leilão ativo'));
+        if (!bidsSnapshot.hasData || bidsSnapshot.data!.docs.isEmpty) {
+          return const Center(
+              child: Text('Você não participou de nenhum leilão'));
         }
 
-        return ListView.builder(
-          itemCount: snapshot.data!.docs.length,
-          itemBuilder: (context, index) {
-            var productDoc = snapshot.data!.docs[index];
-            var productData = productDoc.data() as Map<String, dynamic>;
-            var productId = productDoc.id;
+        // Get unique product IDs from bids
+        Set<String> productIds = bidsSnapshot.data!.docs
+            .map((doc) =>
+                (doc.data() as Map<String, dynamic>)['productId'] as String)
+            .toSet();
 
-            return FutureBuilder<QuerySnapshot>(
-              future: _firestore
-                  .collection('bids')
-                  .where('userId', isEqualTo: _currentUserId)
-                  .where('productId', isEqualTo: productId)
-                  .orderBy('bidTime', descending: true)
-                  .limit(1)
-                  .get(),
-              builder: (context, bidSnapshot) {
-                bool hasUserBid =
-                    bidSnapshot.hasData && bidSnapshot.data!.docs.isNotEmpty;
-                var userBidValue = hasUserBid
-                    ? (bidSnapshot.data!.docs.first.data()
-                        as Map<String, dynamic>)['bidValue']
-                    : null;
+        return StreamBuilder<QuerySnapshot>(
+          stream: _firestore
+              .collection('products')
+              .where(FieldPath.documentId, whereIn: productIds.toList())
+              .snapshots(),
+          builder: (context, productsSnapshot) {
+            if (productsSnapshot.hasError) {
+              return Center(
+                  child: Text(
+                      'Erro ao carregar produtos: ${productsSnapshot.error}'));
+            }
+
+            if (productsSnapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (!productsSnapshot.hasData ||
+                productsSnapshot.data!.docs.isEmpty) {
+              return const Center(child: Text('Nenhum leilão encontrado'));
+            }
+
+            return ListView.builder(
+              itemCount: productsSnapshot.data!.docs.length,
+              itemBuilder: (context, index) {
+                var productDoc = productsSnapshot.data!.docs[index];
+                var productData = productDoc.data() as Map<String, dynamic>;
+
+                // Get all bids for this product
+                var userBids = bidsSnapshot.data!.docs
+                    .where((bid) =>
+                        (bid.data() as Map<String, dynamic>)['productId'] ==
+                        productDoc.id)
+                    .toList();
+
+                // Find highest bid safely
+                double highestUserBidValue = 0;
+                if (userBids.isNotEmpty) {
+                  highestUserBidValue = userBids.map((bid) {
+                    final bidData = bid.data() as Map<String, dynamic>;
+                    return (bidData['bidValue'] as num).toDouble();
+                  }).reduce((max, value) => value > max ? value : max);
+                }
 
                 return Card(
                   margin: const EdgeInsets.all(8.0),
@@ -246,19 +366,26 @@ class _UserBidsScreenState extends State<UserBidsScreen> {
                           'Lance atual: ${_currencyFormatter.format(productData['valor'] ?? 0)}',
                           style: const TextStyle(color: Colors.green),
                         ),
-                        if (hasUserBid)
-                          Text(
-                            'Seu último lance: ${_currencyFormatter.format(userBidValue ?? 0)}',
-                            style: const TextStyle(color: Colors.blue),
-                          ),
                         Text(
-                          'Data de início: ${DateFormat('dd/MM/yyyy HH:mm').format((productData['dataInicio'] as Timestamp).toDate())}',
+                          'Seu maior lance: ${_currencyFormatter.format(highestUserBidValue)}',
+                          style: const TextStyle(color: Colors.blue),
+                        ),
+                        Text(
+                          'Status: ${productData['status'] ?? 'Não disponível'}',
+                          style: TextStyle(
+                            color: _getStatusColor(productData['status']),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          'Total de lances: ${userBids.length}',
                           style: const TextStyle(color: Colors.grey),
                         ),
                       ],
                     ),
-                    trailing: hasUserBid
-                        ? const Icon(Icons.gavel, color: Colors.blue)
+                    trailing: (highestUserBidValue ==
+                            (productData['valor'] as num).toDouble())
+                        ? const Icon(Icons.gavel, color: Colors.green)
                         : const Icon(Icons.gavel_outlined, color: Colors.grey),
                   ),
                 );
@@ -268,5 +395,18 @@ class _UserBidsScreenState extends State<UserBidsScreen> {
         );
       },
     );
+  }
+
+  Color _getStatusColor(String? status) {
+    switch (status?.toLowerCase()) {
+      case 'ativo':
+        return Colors.green;
+      case 'finalizado':
+        return Colors.red;
+      case 'pendente':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
   }
 }

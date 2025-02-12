@@ -3,9 +3,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:my_app/Historicos_Lances/historico_lances.dart';
+import 'package:my_app/Login/AuthScreen.dart';
 import 'package:my_app/add_product_screen.dart';
 import 'package:my_app/product_list_screen.dart';
-import 'package:my_app/auth_screen.dart'; // Adicione este import
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -19,6 +19,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _selectedIndex = 0;
   bool _isAdmin = false;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  bool _disposed = false;
 
   @override
   void initState() {
@@ -26,17 +27,32 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     _checkAdminStatus();
   }
 
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
   Future<void> _checkAdminStatus() async {
+    if (_disposed) return; // Check if widget is disposed
+
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      final userDoc = await FirebaseFirestore.instance
-          .collection('usuarios')
-          .doc(user.uid)
-          .get();
+      try {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('usuarios')
+            .doc(user.uid)
+            .get();
 
-      setState(() {
-        _isAdmin = userDoc.data()?['adm'] ?? false;
-      });
+        if (!_disposed && mounted) {
+          // Double check both conditions
+          setState(() {
+            _isAdmin = userDoc.data()?['adm'] ?? false;
+          });
+        }
+      } catch (e) {
+        debugPrint('Error checking admin status: $e');
+      }
     }
   }
 
@@ -44,16 +60,20 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     try {
       await _auth.signOut();
       // Navegue para a tela de autenticação e remova todas as telas anteriores da pilha
-      // ignore: use_build_context_synchronously
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => const AuthScreen()),
-        (route) => false,
-      );
+      if (!_disposed && mounted) {
+        // Check if widget is still mounted
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const AuthScreen()),
+          (route) => false,
+        );
+      }
     } catch (e) {
-      // ignore: use_build_context_synchronously
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao fazer logout: $e')),
-      );
+      if (!_disposed && mounted) {
+        // Check if widget is still mounted
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao fazer logout: $e')),
+        );
+      }
     }
   }
 
@@ -114,9 +134,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         selectedItemColor: Colors.blue,
         unselectedItemColor: Colors.grey,
         onTap: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
+          if (mounted) {
+            // Check if widget is mounted before setState
+            setState(() {
+              _selectedIndex = index;
+            });
+          }
         },
         type: BottomNavigationBarType.fixed,
       ),

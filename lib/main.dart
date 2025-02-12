@@ -3,9 +3,39 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:my_app/Home/home_Page.dart';
 import 'package:my_app/Login/AuthScreen.dart';
+import 'package:path_provider/path_provider.dart';
+
+// Function to clear app cache
+Future<void> clearAppCache() async {
+  try {
+    // Clear temporary directory
+    final tempDir = await getTemporaryDirectory();
+    if (tempDir.existsSync()) {
+      await tempDir.delete(recursive: true);
+      await tempDir.create();
+    }
+
+    // Clear application support directory
+    final appSupportDir = await getApplicationSupportDirectory();
+    if (appSupportDir.existsSync()) {
+      await appSupportDir.delete(recursive: true);
+      await appSupportDir.create();
+    }
+
+    // Clear Firebase cache
+    await FirebaseAuth.instance.signOut();
+    await Firebase.initializeApp();
+  } catch (e) {
+    debugPrint('Error clearing cache: $e');
+  }
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Clear cache before initializing Firebase
+  await clearAppCache();
+
   await Firebase.initializeApp(
     options: const FirebaseOptions(
       apiKey: "AIzaSyC1fdQ6PaN2tegYOzMdijfyhwsgEbf_fCE",

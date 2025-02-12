@@ -14,22 +14,43 @@ class AuthScreen extends StatefulWidget {
 class _AuthScreenState extends State<AuthScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _nameController = TextEditingController(); // Novo controller para nome
-  final _cpfController = TextEditingController(); // Novo controller para CPF
-  final _phoneController =
-      TextEditingController(); // Novo controller para telefone
+  final _nameController = TextEditingController();
+  final _cpfController = TextEditingController();
+  final _phoneController = TextEditingController();
 
   bool isLogin = true;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   @override
+  void initState() {
+    super.initState();
+    // Verifica se há um usuário logado ao iniciar a tela
+    checkCurrentUser();
+  }
+
+  Future<void> checkCurrentUser() async {
+    // Obtém o usuário atual
+    User? user = _auth.currentUser;
+
+    if (user != null) {
+      // Se houver um usuário logado, redireciona para a tela principal
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const ProductListScreen(),
+        ),
+      );
+    }
+  }
+
+  @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    _nameController.dispose(); // Dispose novo controller
-    _cpfController.dispose(); // Dispose novo controller
-    _phoneController.dispose(); // Dispose novo controller
+    _nameController.dispose();
+    _cpfController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
@@ -43,14 +64,12 @@ class _AuthScreenState extends State<AuthScreen> {
         );
       } else {
         // Registro
-        // Primeiro, criar usuário no Firebase Authentication
         UserCredential userCredential =
             await _auth.createUserWithEmailAndPassword(
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
         );
 
-        // Depois, criar documento na collection de usuários no Firestore
         await _firestore
             .collection('usuarios')
             .doc(userCredential.user!.uid)
@@ -59,13 +78,11 @@ class _AuthScreenState extends State<AuthScreen> {
           'email': _emailController.text.trim(),
           'cpf': _cpfController.text.trim(),
           'telefone': _phoneController.text.trim(),
-          'adm': false, // Campo fixo como solicitado
-          'criadoEm': FieldValue
-              .serverTimestamp(), // Timestamp opcional, mas recomendado
+          'adm': false,
+          'criadoEm': FieldValue.serverTimestamp(),
         });
       }
 
-      // Redirecionar para a tela de leilões
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -83,6 +100,7 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
+  // Resto do código permanece igual...
   @override
   Widget build(BuildContext context) {
     return Scaffold(
